@@ -12,10 +12,23 @@ permissions: {}
 jobs:
   itch:
     name: Push to itch.io
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Clone repository
         uses: actions/checkout@v7
+
+      - name: Determine channel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          PRERELEASE=$(gh api "repos/OpenHV/OpenHV/releases/tags/${TAG}" --jq '.prerelease')
+          if [ "${PRERELEASE}" = "true" ]; then
+            echo "CHANNEL_SUFFIX=-beta" >> "${GITHUB_ENV}"
+          else
+            echo "CHANNEL_SUFFIX=" >> "${GITHUB_ENV}"
+          fi
+          echo "Prerelease: ${PRERELEASE}"
 
       - name: Download Butler
         env:
@@ -34,18 +47,18 @@ jobs:
         run: |
           wget -q "https://github.com/OpenHV/OpenHV/releases/download/${{ github.event.inputs.tag }}/OpenHV-${{ github.event.inputs.tag }}-x64-winportable.zip" -O "OpenHV-${{ github.event.inputs.tag }}-x64-win-itch.zip"
           zip -u "OpenHV-${{ github.event.inputs.tag }}-x64-win-itch.zip" .itch.toml
-          ./butler push "OpenHV-${{ github.event.inputs.tag }}-x64-win-itch.zip" "openhv/openhv:win" --userversion ${{ github.event.inputs.tag }}
+          ./butler push "OpenHV-${{ github.event.inputs.tag }}-x64-win-itch.zip" "openhv/openhv:win${CHANNEL_SUFFIX}" --userversion ${{ github.event.inputs.tag }}
 
       - name: macOS
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_CREDENTIALS }}
         run: |
           wget -q "https://github.com/OpenHV/OpenHV/releases/download/${{ github.event.inputs.tag }}/OpenHV-${{ github.event.inputs.tag }}.dmg"
-          ./butler push "OpenHV-${{ github.event.inputs.tag }}.dmg" "openhv/openhv:osx" --userversion ${{ github.event.inputs.tag }}
+          ./butler push "OpenHV-${{ github.event.inputs.tag }}.dmg" "openhv/openhv:osx${CHANNEL_SUFFIX}" --userversion ${{ github.event.inputs.tag }}
 
       - name: AppImage
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_CREDENTIALS }}
         run: |
           wget -q "https://github.com/OpenHV/OpenHV/releases/download/${{ github.event.inputs.tag }}/OpenHV-${{ github.event.inputs.tag }}-x86_64.AppImage"
-          ./butler push "OpenHV-${{ github.event.inputs.tag }}-x86_64.AppImage" "openhv/openhv:linux" --userversion ${{ github.event.inputs.tag }}
+          ./butler push "OpenHV-${{ github.event.inputs.tag }}-x86_64.AppImage" "openhv/openhv:linux${CHANNEL_SUFFIX}" --userversion ${{ github.event.inputs.tag }}
